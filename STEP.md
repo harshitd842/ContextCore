@@ -35,7 +35,7 @@ source .venv/bin/activate
 Windows:
 
 ```powershell
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
 ```
 
 After activation, the terminal should show `(.venv)`.
@@ -44,7 +44,7 @@ After activation, the terminal should show `(.venv)`.
 
 With the environment activated, run:
 
-```bash
+```powershell
 python -m pip install -r backend/requirements.txt
 ```
 
@@ -150,9 +150,8 @@ The response should contain `"status":"healthy"`.
 Run this in a second terminal:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/define \
-  -H "Content-Type: application/json" \
-  -d '{"word":"bank","context":"She sat beside the bank of the river."}'
+curl -X POST $body = @{ word = "bank"; context = "She sat beside the bank of the river." } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/define" -Method Post -ContentType "application/json" -Body $body
 ```
 
 A successful response contains fields such as:
@@ -175,7 +174,8 @@ If the response says the definition service is unavailable, check the provider k
 With `.venv` active:
 
 ```bash
-python -m pytest backend/tests -q
+$body = @{ word = "bank"; context = "She sat beside the bank of the river." } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://127.0.0.1:8000/define" -Method Post -ContentType "application/json" -Body $body
 ```
 
 All tests should pass before pushing backend changes.

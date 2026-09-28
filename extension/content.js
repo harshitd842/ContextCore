@@ -1594,9 +1594,113 @@
 		}
 	}
 
+<<<<<<< Updated upstream
 	// Inject subtle page-level CSS for the temporary highlight mark only
 	function injectPageHighlightStyles() {
 		if (document.getElementById("cc-web-highlight-style")) return;
+=======
+	function setStatus(message, isError = false) {
+		const status = lookupCard?.querySelector(".cc-status");
+		if (status) {
+			status.textContent = message;
+			status.classList.toggle("cc-error", isError);
+		}
+	}
+
+	function showMessage(message, isError = false) {
+		setStatus(message, isError);
+	}
+
+	async function getCache() {
+		if (!chrome?.storage?.local) return {};
+		try {
+			return (await chrome.storage.local.get(CACHE_KEY))[CACHE_KEY] || {};
+		} catch (error) {
+			console.error("[ContentCore] Unable to read lookup cache:", error);
+			return {};
+		}
+	}
+
+	async function explainSelection() {
+		if (!lookupCard || !selectedText) return;
+
+		const context = selectedContext;
+		const cacheKey = `${location.href}::${selectedText.toLowerCase()}::${context}`;
+		const cache = await getCache();
+
+		if (cache[cacheKey]) {
+			renderResult(cache[cacheKey], true);
+			return;
+		}
+
+		const button = lookupCard.querySelector("[data-cc-explain]");
+		button.disabled = true;
+		setStatus("Fetching...");
+
+		try {
+			const settings = await chrome.storage.local.get(["contentCoreEndpoint", "contentCoreApiKey"]);
+
+			if (!settings.contentCoreEndpoint) {
+				showMessage("No API endpoint configured. Add one in ContentCore settings.", true);
+				button.disabled = false;
+				return;
+			}
+
+			const response = await fetch(settings.contentCoreEndpoint, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					...(settings.contentCoreApiKey ? { Authorization: `Bearer ${settings.contentCoreApiKey}` } : {})
+				},
+				body: JSON.stringify(selectionData)
+			});
+
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+			const result = await response.json();
+			const definition = clean(String(result.definition || result.meaning || result.explanation || result.answer || "No definition"));
+				if (!definition || definition === "No definition") throw new Error("The API returned no explanation.");
+
+			cache[cacheKey] = definition;
+			try {
+				await chrome.storage.local.set({ [CACHE_KEY]: cache });
+			} catch (error) {
+				console.error("[ContentCore] Unable to save lookup cache:", error);
+			}
+			renderResult(definition);
+		} catch (error) {
+			setStatus(`Error: ${error.message}`, true);
+			button.disabled = false;
+		}
+	}
+
+	function renderResult(definition, fromCache = false) {
+		if (!lookupCard) return;
+		currentDefinition = definition;
+		lookupCard.querySelector(".cc-status").textContent = fromCache ? "From cache" : "✓ Done";
+		lookupCard.querySelector(".cc-result").textContent = definition;
+		lookupCard.querySelector(".cc-result").hidden = false;
+		lookupCard.querySelector("[data-cc-explain]").hidden = true;
+		lookupCard.querySelector("[data-cc-save]").hidden = false;
+	}
+
+	async function saveSelection() {
+		const saved = (await chrome.storage.local.get("contentCoreSavedWords")).contentCoreSavedWords || [];
+		if (!saved.some((item) => item.word === selectedText && item.url === location.href)) {
+			saved.unshift({
+					word: selectionData.word,
+					context: selectionData.context,
+					definition: currentDefinition,
+				url: location.href,
+				savedAt: Date.now()
+			});
+			await chrome.storage.local.set({ contentCoreSavedWords: saved.slice(0, 100) });
+		}
+		setStatus("✓ Saved");
+	}
+
+	function injectStyles() {
+>>>>>>> Stashed changes
 		const style = document.createElement("style");
 		style.id = "cc-web-highlight-style";
 		style.textContent = `
